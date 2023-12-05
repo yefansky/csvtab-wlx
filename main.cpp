@@ -1,5 +1,6 @@
-#define UNICODE
-#define _UNICODE
+
+// dllmain.cpp : Defines the entry point for the DLL application.
+#include "pch.h"
 
 #include <windows.h>
 #include <windowsx.h>
@@ -69,7 +70,8 @@
 #define MAX_COLUMN_COUNT       128
 #define MAX_COLUMN_LENGTH      2000
 #define MAX_FILTER_LENGTH      2000
-#define DELIMITERS             TEXT(",;|\t:")
+//#define DELIMITERS             TEXT(",;|\t:")
+const TCHAR DELIMITERS[] = TEXT(",;|\t:");
 #define APP_NAME               TEXT("csvtab")
 #define APP_VERSION            TEXT("1.0.6")
 
@@ -97,13 +99,13 @@ LRESULT CALLBACK cbNewHeader(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK cbNewFilterEdit (HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND getMainWindow(HWND hWnd);
-void setStoredValue(TCHAR* name, int value);
-int getStoredValue(TCHAR* name, int defValue);
-TCHAR* getStoredString(TCHAR* name, TCHAR* defValue);
+void setStoredValue(const TCHAR* name, int value);
+int getStoredValue(const TCHAR* name, int defValue);
+TCHAR* getStoredString(const TCHAR* name, const TCHAR* defValue);
 int CALLBACK cbEnumTabStopChildren (HWND hWnd, LPARAM lParam);
 TCHAR* utf8to16(const char* in);
 char* utf16to8(const TCHAR* in);
-int detectCodePage(const unsigned char *data, int len);
+int detectCodePage(const char *data, int len);
 TCHAR detectDelimiter(const TCHAR *data, BOOL skipComments);
 void setClipboardText(const TCHAR* text);
 BOOL isEOL(TCHAR c);
@@ -114,13 +116,13 @@ BOOL hasString (const TCHAR* str, const TCHAR* sub, BOOL isCaseSensitive);
 TCHAR* extractUrl(TCHAR* data);
 void mergeSort(int indexes[], void* data, int l, int r, BOOL isBackward, BOOL isNums);
 int ListView_AddColumn(HWND hListWnd, TCHAR* colName, int fmt);
-int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, int cchTextMax);
+int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, const int cchTextMax);
 void Menu_SetItemState(HMENU hMenu, UINT wID, UINT fState);
 
 BOOL APIENTRY DllMain (HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 	if (ul_reason_for_call == DLL_PROCESS_ATTACH && iniPath[0] == 0) {
 		TCHAR path[MAX_PATH + 1] = {0};
-		GetModuleFileName(hModule, path, MAX_PATH);
+		GetModuleFileName((HMODULE)hModule, path, MAX_PATH);
 		TCHAR* dot = _tcsrchr(path, TEXT('.'));
 		_tcsncpy(dot, TEXT(".ini"), 5);
 		if (_taccess(path, 0) == 0)
@@ -215,14 +217,17 @@ int __stdcall ListSearchText(HWND hWnd, char* searchString, int searchParameter)
 	return rc;
 }	
 
-HWND APIENTRY ListLoadW (HWND hListerWnd, TCHAR* fileToLoad, int showFlags) {		
+USR_API HWND  ListLoad(HWND hListerWnd, const char* fileToLoad, int showFlags);
+USR_API HWND  ListLoadW(HWND hListerWnd, const TCHAR* fileToLoad, int showFlags);
+
+HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* fileToLoad, int showFlags) {		
 	int size = _tcslen(fileToLoad);
-	TCHAR* filepath = calloc(size + 1, sizeof(TCHAR));
+	TCHAR* filepath = (TCHAR*)calloc(size + 1, sizeof(TCHAR));
 	_tcsncpy(filepath, fileToLoad, size);
 		
 	int maxFileSize = getStoredValue(TEXT("max-file-size"), 10000000);	
 	struct _stat st = {0};
-	if (_tstat(filepath, &st) != 0 || st.st_size == 0 || maxFileSize > 0 && st.st_size > maxFileSize)
+	if (_tstat(filepath, &st) != 0 || st.st_size == 0/* || maxFileSize > 0 && st.st_size > maxFileSize*/)
 		return 0;
 
 	INITCOMMONCONTROLSEX icex;
@@ -341,7 +346,7 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, TCHAR* fileToLoad, int showFlags) {
 	return hMainWnd;
 }
 
-HWND APIENTRY ListLoad (HWND hListerWnd, char* fileToLoad, int showFlags) {
+HWND APIENTRY ListLoad (HWND hListerWnd, const char* fileToLoad, int showFlags) {
 	DWORD size = MultiByteToWideChar(CP_ACP, 0, fileToLoad, -1, NULL, 0);
 	TCHAR* fileToLoadW = (TCHAR*)calloc (size, sizeof (TCHAR));
 	MultiByteToWideChar(CP_ACP, 0, fileToLoad, -1, fileToLoadW, size);
@@ -388,10 +393,10 @@ void __stdcall ListCloseWindow(HWND hWnd) {
 	DeleteFont(GetProp(hWnd, TEXT("FONT")));
 	DeleteObject(GetProp(hWnd, TEXT("BACKBRUSH")));	
 	DeleteObject(GetProp(hWnd, TEXT("FILTERBACKBRUSH")));
-	DestroyMenu(GetProp(hWnd, TEXT("GRIDMENU")));
-	DestroyMenu(GetProp(hWnd, TEXT("CODEPAGEMENU")));	
-	DestroyMenu(GetProp(hWnd, TEXT("DELIMITERMENU")));	
-	DestroyMenu(GetProp(hWnd, TEXT("COMMENTMENU")));	
+	DestroyMenu((HMENU)GetProp(hWnd, TEXT("GRIDMENU")));
+	DestroyMenu((HMENU)GetProp(hWnd, TEXT("CODEPAGEMENU")));
+	DestroyMenu((HMENU)GetProp(hWnd, TEXT("DELIMITERMENU")));
+	DestroyMenu((HMENU)GetProp(hWnd, TEXT("COMMENTMENU")));
 
 	RemoveProp(hWnd, TEXT("WNDPROC"));
 	RemoveProp(hWnd, TEXT("CACHE"));
@@ -462,7 +467,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		break;
 				
 		case WM_SETFOCUS: {
-			SetFocus(GetProp(hWnd, TEXT("LASTFOCUS")));
+			SetFocus((HWND)GetProp(hWnd, TEXT("LASTFOCUS")));
 		}
 		break;		
 		
@@ -536,7 +541,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					} 
 				}	
 
-				TCHAR* buf = calloc(len + 1, sizeof(TCHAR));
+				TCHAR* buf = (TCHAR*)calloc(len + 1, sizeof(TCHAR));
 				if (cmd == IDM_COPY_CELL)
 					_tcscat(buf, cache[resultset[rowNo]][colNo]);
 				
@@ -544,7 +549,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					int pos = 0;
 					int rowNo = ListView_GetNextItem(hGridWnd, -1, LVNI_SELECTED);
 
-					int* colOrder = calloc(colCount, sizeof(int));
+					int* colOrder = (int*)calloc(colCount, sizeof(int));
 					Header_GetOrderArray(hHeader, colCount, colOrder);
 
 					while (rowNo != -1) {
@@ -661,7 +666,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			if (pHdr->idFrom == IDC_GRID && pHdr->code == (DWORD)NM_RCLICK) {
 				POINT p;
 				GetCursorPos(&p);
-				TrackPopupMenu(GetProp(hWnd, TEXT("GRIDMENU")), TPM_RIGHTBUTTON | TPM_TOPALIGN | TPM_LEFTALIGN, p.x, p.y, 0, hWnd, NULL);
+				TrackPopupMenu((HMENU)GetProp(hWnd, TEXT("GRIDMENU")), TPM_RIGHTBUTTON | TPM_TOPALIGN | TPM_LEFTALIGN, p.x, p.y, 0, hWnd, NULL);
 			}
 			
 			if (pHdr->idFrom == IDC_GRID && pHdr->code == (DWORD)LVN_ITEMCHANGED) {
@@ -707,7 +712,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					int colCount = Header_GetItemCount(ListView_GetHeader(pHdr->hwndFrom));
 					int colNo = *(int*)GetProp(hWnd, TEXT("CURRENTCOLNO"));
 
-					int* colOrder = calloc(colCount, sizeof(int));
+					int* colOrder = (int*)calloc(colCount, sizeof(int));
 					Header_GetOrderArray(hHeader, colCount, colOrder);
 	
 					int dir = kd->wVKey == VK_RIGHT ? 1 : -1;
@@ -737,7 +742,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				RECT rc, rc2;
 				GetWindowRect(pHdr->hwndFrom, &rc);
 				SendMessage(pHdr->hwndFrom, SB_GETRECT, id, (LPARAM)&rc2);
-				HMENU hMenu = GetProp(hWnd, id == SB_CODEPAGE ? TEXT("CODEPAGEMENU") : id == SB_DELIMITER ? TEXT("DELIMITERMENU") : TEXT("COMMENTMENU"));
+				HMENU hMenu = (HMENU)GetProp(hWnd, id == SB_CODEPAGE ? TEXT("CODEPAGEMENU") : id == SB_DELIMITER ? TEXT("DELIMITERMENU") : TEXT("COMMENTMENU"));
 				
 				if (id == SB_CODEPAGE) {
 					int codepage = *(int*)GetProp(hWnd, TEXT("CODEPAGE"));
@@ -849,7 +854,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			
 			SendMessage(hWnd, WMU_RESET_CACHE, 0, 0);
 
-			char* rawdata = calloc(filesize + 2, sizeof(char)); // + 2!
+			char* rawdata = (char*)calloc(filesize + 2, sizeof(char)); // + 2!
 			FILE *f = _tfopen(filepath, TEXT("rb"));
 			fread(rawdata, sizeof(char), filesize, f);
 			fclose(f);
@@ -930,7 +935,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int rowNo = -1;
 			int len = _tcslen(data);
 			int cacheSize = len / 100 + 1;
-			TCHAR*** cache = calloc(cacheSize, sizeof(TCHAR**));
+			TCHAR*** cache = (TCHAR***)calloc(cacheSize, sizeof(TCHAR**));
 			BOOL isTrim = getStoredValue(TEXT("trim-values"), 1);
 
 			// Two step parsing: 0 - count columns, 1 - fill cache
@@ -942,7 +947,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					if (stepNo == 1) {
 						if (rowNo >= cacheSize) {
 							cacheSize += 100;
-							cache = realloc(cache, cacheSize * sizeof(TCHAR**));
+							cache = (TCHAR***)realloc(cache, cacheSize * sizeof(TCHAR**));
 						}
 
 						cache[rowNo] = (TCHAR**)calloc (colCount, sizeof (TCHAR*));
@@ -1001,7 +1006,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 									vLen -= l + r;
 								}
 								
-								TCHAR* value = calloc(vLen + 1, sizeof(TCHAR));
+								TCHAR* value = (TCHAR*)calloc(vLen + 1, sizeof(TCHAR));
 								if (vLen > 0) {
 									_tcsncpy(value, data + start + qPos + 1, vLen);
 									
@@ -1041,7 +1046,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					}
 					
 					while (stepNo == 1 && colNo < colCount) {
-						cache[rowNo][colNo] = calloc(1, sizeof(TCHAR));
+						cache[rowNo][colNo] = (TCHAR*)calloc(1, sizeof(TCHAR));
 						colNo++;
 					}
 					
@@ -1050,7 +1055,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				}
 				
 				if (stepNo == 1) {
-					cache = realloc(cache, (rowNo + 1) * sizeof(TCHAR**));
+					cache = (TCHAR***)realloc(cache, (rowNo + 1) * sizeof(TCHAR**));
 					if (codepage == CP_UTF16LE || codepage == CP_UTF16BE)
 						free(rawdata);
 					else						
@@ -1217,7 +1222,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			if (rowCount > 0) {
 				if (rowCount > *pTotalRowCount)
 					MessageBeep(0);
-				resultset = realloc(resultset, rowCount * sizeof(int));
+				resultset = (int *)realloc(resultset, rowCount * sizeof(int));
 				SetProp(hWnd, TEXT("RESULTSET"), (HANDLE)resultset);
 				int orderBy = *pOrderBy;
 
@@ -1230,14 +1235,14 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 						isNum = isNum && isNumber(cache[i][colNo]);
 												
 					if (isNum) {
-						double* nums = calloc(*pTotalRowCount, sizeof(double));
+						double* nums = (double*)calloc(*pTotalRowCount, sizeof(double));
 						for (int i = 0; i < rowCount; i++)
 							nums[resultset[i]] = _tcstod(cache[resultset[i]][colNo], NULL);
 
 						mergeSort(resultset, (void*)nums, 0, rowCount - 1, isBackward, isNum);
 						free(nums);
 					} else {
-						TCHAR** strings = calloc(*pTotalRowCount, sizeof(TCHAR*));
+						TCHAR** strings = (TCHAR**)calloc(*pTotalRowCount, sizeof(TCHAR*));
 						for (int i = 0; i < rowCount; i++)
 							strings[resultset[i]] = cache[resultset[i]][colNo];
 						mergeSort(resultset, (void*)strings, 0, rowCount - 1, isBackward, isNum);
@@ -1267,7 +1272,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int colCount = Header_GetItemCount(hHeader);
 			SendMessage(hHeader, WM_SIZE, 0, 0);
 
-			int* colOrder = calloc(colCount, sizeof(int));
+			int* colOrder = (int*)calloc(colCount, sizeof(int));
 			Header_GetOrderArray(hHeader, colCount, colOrder);
 
 			for (int idx = 0; idx < colCount; idx++) {
@@ -1525,7 +1530,7 @@ LRESULT CALLBACK cbNewMain(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					return FALSE;
 
 				if (!isCurrent) {
-					int* colOrder = calloc(colCount, sizeof(int));
+					int* colOrder = (int*)calloc(colCount, sizeof(int));
 					Header_GetOrderArray(hHeader, colCount, colOrder);
 
 					int hiddenColCount = 0;
@@ -1599,7 +1604,7 @@ LRESULT CALLBACK cbNewFilterEdit(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
 			HDC hDC = GetWindowDC(hWnd);
 			HPEN hPen = CreatePen(PS_SOLID, 1, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
-			HPEN oldPen = SelectObject(hDC, hPen);
+			HPEN oldPen = (HPEN)SelectObject(hDC, hPen);
 			MoveToEx(hDC, 1, 0, 0);
 			LineTo(hDC, rc.right - 1, 0);
 			LineTo(hDC, rc.right - 1, rc.bottom - 1);
@@ -1665,19 +1670,19 @@ HWND getMainWindow(HWND hWnd) {
 	return hMainWnd;	
 }
 
-void setStoredValue(TCHAR* name, int value) {
+void setStoredValue(const TCHAR* name, int value) {
 	TCHAR buf[128];
 	_sntprintf(buf, 128, TEXT("%i"), value);
 	WritePrivateProfileString(APP_NAME, name, buf, iniPath);
 }
 
-int getStoredValue(TCHAR* name, int defValue) {
+int getStoredValue(const TCHAR* name, int defValue) {
 	TCHAR buf[128];
 	return GetPrivateProfileString(APP_NAME, name, NULL, buf, 128, iniPath) ? _ttoi(buf) : defValue;
 }
 
-TCHAR* getStoredString(TCHAR* name, TCHAR* defValue) { 
-	TCHAR* buf = calloc(256, sizeof(TCHAR));
+TCHAR* getStoredString(const TCHAR* name, const TCHAR* defValue) { 
+	TCHAR* buf = (TCHAR*)calloc(256, sizeof(TCHAR));
 	if (0 == GetPrivateProfileString(APP_NAME, name, NULL, buf, 128, iniPath) && defValue)
 		_tcsncpy(buf, defValue, 255);
 	return buf;	
@@ -1720,7 +1725,7 @@ char* utf16to8(const TCHAR* in) {
 }
 
 // https://stackoverflow.com/a/25023604/6121703
-int detectCodePage(const unsigned char *data, int len) {
+int detectCodePage(const char *data, int len) {
 	int cp = 0;
 	
 	// BOM
@@ -1759,9 +1764,14 @@ int detectCodePage(const unsigned char *data, int len) {
 }
 
 TCHAR detectDelimiter(const TCHAR *data, BOOL skipComments) {
-	int rowCount = 5;
-	int delimCount = _tcslen(DELIMITERS);
+	const int rowCount = 5;
+	const int delimCount = _countof(DELIMITERS) - 1;
 	int colCount[rowCount][delimCount];
+	int total[delimCount];
+	int maxNo = 0;
+
+	static_assert(delimCount == 5, "delimCount size error");
+
 	memset(colCount, 0, sizeof(int) * (size_t)(rowCount * delimCount));
 	
 	int pos = 0;
@@ -1798,17 +1808,18 @@ TCHAR detectDelimiter(const TCHAR *data, BOOL skipComments) {
 		pos++;
 	}
 
-	rowCount = rowNo;
-	int maxNo = 0;
-	int total[delimCount];
-	memset(total, 0, sizeof(int) * (size_t)(delimCount));
-	for (int delimNo = 0; delimNo < delimCount; delimNo++) {
-		for (int i = 0; i < rowCount; i++) {
-			for (int j = 0; j < rowCount; j++) {
-				total[delimNo] += colCount[i][delimNo] == colCount[j][delimNo] && colCount[i][delimNo] > 0 ? 10 + colCount[i][delimNo] :
-					colCount[i][delimNo] != 0 ? 5 :
-					0;	 
-			}				
+	{
+		int _rowCount = rowNo;
+
+		memset(total, 0, sizeof(int) * (size_t)(delimCount));
+		for (int delimNo = 0; delimNo < delimCount; delimNo++) {
+			for (int i = 0; i < _rowCount; i++) {
+				for (int j = 0; j < _rowCount; j++) {
+					total[delimNo] += colCount[i][delimNo] == colCount[j][delimNo] && colCount[i][delimNo] > 0 ? 10 + colCount[i][delimNo] :
+						colCount[i][delimNo] != 0 ? 5 :
+						0;
+				}
+			}
 		}
 	}
 
@@ -1899,11 +1910,11 @@ int findString(TCHAR* text, TCHAR* word, BOOL isMatchCase, BOOL isWholeWords) {
 		return res;
 	
 	if (!isMatchCase) {
-		TCHAR* ltext = calloc(tlen + 1, sizeof(TCHAR));
+		TCHAR* ltext = (TCHAR*)calloc(tlen + 1, sizeof(TCHAR));
 		_tcsncpy(ltext, text, tlen);
 		text = _tcslwr(ltext);
 
-		TCHAR* lword = calloc(wlen + 1, sizeof(TCHAR));
+		TCHAR* lword = (TCHAR*)calloc(wlen + 1, sizeof(TCHAR));
 		_tcsncpy(lword, word, wlen);
 		word = _tcslwr(lword);
 	}
@@ -1945,7 +1956,7 @@ TCHAR* extractUrl(TCHAR* data) {
 	int start = len;
 	int end = len;
 	
-	TCHAR* url = calloc(len + 10, sizeof(TCHAR));
+	TCHAR* url = (TCHAR*)calloc(len + 10, sizeof(TCHAR));
 	
 	TCHAR* slashes = _tcsstr(data, TEXT("://"));
 	if (slashes) {
@@ -1966,8 +1977,8 @@ void mergeSortJoiner(int indexes[], void* data, int l, int m, int r, BOOL isBack
 	int n1 = m - l + 1;
 	int n2 = r - m;
 	
-	int* L = calloc(n1, sizeof(int));
-	int* R = calloc(n2, sizeof(int)); 
+	int* L = (int*)calloc(n1, sizeof(int));
+	int* R = (int*)calloc(n2, sizeof(int)); 
 	
 	for (int i = 0; i < n1; i++)
 		L[i] = indexes[l + i];
@@ -2027,11 +2038,11 @@ int ListView_AddColumn(HWND hListWnd, TCHAR* colName, int fmt) {
 	return ListView_InsertColumn(hListWnd, colNo, &lvc);
 }
 
-int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, int cchTextMax) {
+int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, const int cchTextMax) {
 	if (i < 0)
 		return FALSE;
 
-	TCHAR buf[cchTextMax];
+	TCHAR* buf = new TCHAR[cchTextMax];
 
 	HDITEM hdi = {0};
 	hdi.mask = HDI_TEXT;
@@ -2040,6 +2051,8 @@ int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, int cchTextMax) {
 	int rc = Header_GetItem(hWnd, i, &hdi);
 
 	_tcsncpy(pszText, buf, cchTextMax);
+
+	delete [] buf;
 	return rc;
 }
 
