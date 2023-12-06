@@ -1,21 +1,25 @@
 #include "stdafx.h"
 
-BOOL isEOL(TCHAR c) {
+BOOL isEOL(TCHAR c) 
+{
 	return c == TEXT('\r') || c == TEXT('\n');
 }
 
-BOOL isNumber(TCHAR* val) {
-	int len = _tcslen(val);
-	BOOL res = TRUE;
-	int pCount = 0;
-	for (int i = 0; res && i < len; i++) {
-		pCount += val[i] == TEXT('.');
-		res = _istdigit(val[i]) || val[i] == TEXT('.');
+BOOL isNumber(TCHAR* pszVal)
+{
+	int nLen = (int)_tcslen(pszVal);
+	BOOL bResult = TRUE;
+	int nCount = 0;
+	for (int i = 0; bResult && i < nLen; i++) 
+	{
+		nCount += pszVal[i] == TEXT('.');
+		bResult = _istdigit(pszVal[i]) || pszVal[i] == TEXT('.');
 	}
-	return res && pCount < 2;
+	return bResult && nCount < 2;
 }
 
-void mergeSortJoiner(int indexes[], void* data, int l, int m, int r, BOOL isBackward, BOOL isNums) {
+void mergeSortJoiner(int nIndexes[], void* pvData, int l, int m, int r, BOOL bisBackward, BOOL bisNums) 
+{
 	int n1 = m - l + 1;
 	int n2 = r - m;
 
@@ -23,35 +27,40 @@ void mergeSortJoiner(int indexes[], void* data, int l, int m, int r, BOOL isBack
 	int* R = (int*)calloc(n2, sizeof(int));
 
 	for (int i = 0; i < n1; i++)
-		L[i] = indexes[l + i];
+		L[i] = nIndexes[l + i];
 	for (int j = 0; j < n2; j++)
-		R[j] = indexes[m + 1 + j];
+		R[j] = nIndexes[m + 1 + j];
 
 	int i = 0, j = 0, k = l;
-	while (i < n1 && j < n2) {
-		int cmp = isNums ? ((double*)data)[L[i]] <= ((double*)data)[R[j]] : _tcscmp(((TCHAR**)data)[L[i]], ((TCHAR**)data)[R[j]]) <= 0;
-		if (isBackward)
+	while (i < n1 && j < n2) 
+	{
+		int cmp = bisNums ? ((double*)pvData)[L[i]] <= ((double*)pvData)[R[j]] : _tcscmp(((TCHAR**)pvData)[L[i]], ((TCHAR**)pvData)[R[j]]) <= 0;
+		if (bisBackward)
 			cmp = !cmp;
 
-		if (cmp) {
-			indexes[k] = L[i];
+		if (cmp) 
+		{
+			nIndexes[k] = L[i];
 			i++;
 		}
-		else {
-			indexes[k] = R[j];
+		else 
+		{
+			nIndexes[k] = R[j];
 			j++;
 		}
 		k++;
 	}
 
-	while (i < n1) {
-		indexes[k] = L[i];
+	while (i < n1) 
+	{
+		nIndexes[k] = L[i];
 		i++;
 		k++;
 	}
 
-	while (j < n2) {
-		indexes[k] = R[j];
+	while (j < n2) 
+	{
+		nIndexes[k] = R[j];
 		j++;
 		k++;
 	}
@@ -60,11 +69,13 @@ void mergeSortJoiner(int indexes[], void* data, int l, int m, int r, BOOL isBack
 	free(R);
 }
 
-void mergeSort(int indexes[], void* data, int l, int r, BOOL isBackward, BOOL isNums) {
-	if (l < r) {
+void mergeSort(int nIndexes[], void* pvData, int l, int r, BOOL bisBackward, BOOL bisNums) 
+{
+	if (l < r) 
+	{
 		int m = l + (r - l) / 2;
-		mergeSort(indexes, data, l, m, isBackward, isNums);
-		mergeSort(indexes, data, m + 1, r, isBackward, isNums);
-		mergeSortJoiner(indexes, data, l, m, r, isBackward, isNums);
+		mergeSort(nIndexes, pvData, l, m, bisBackward, bisNums);
+		mergeSort(nIndexes, pvData, m + 1, r, bisBackward, bisNums);
+		mergeSortJoiner(nIndexes, pvData, l, m, r, bisBackward, bisNums);
 	}
 }

@@ -3,112 +3,124 @@
 #include "stdafx.h"
 #include "exportDef.h"
 
-BOOL APIENTRY DllMain (HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-	if (ul_reason_for_call == DLL_PROCESS_ATTACH && iniPath[0] == 0) {
+TCHAR g_szIniPath[MAX_PATH] = { 0 };
+
+BOOL APIENTRY DllMain (HANDLE hModule, DWORD dwUlReasonForCall, LPVOID pvReserved) 
+{
+	if (dwUlReasonForCall == DLL_PROCESS_ATTACH && g_szIniPath[0] == 0) 
+	{
 		TCHAR path[MAX_PATH + 1] = {0};
 		GetModuleFileName((HMODULE)hModule, path, MAX_PATH);
 		TCHAR* dot = _tcsrchr(path, TEXT('.'));
 		_tcsncpy(dot, TEXT(".ini"), 5);
 		if (_taccess(path, 0) == 0)
-			_tcscpy(iniPath, path);	
+			_tcscpy(g_szIniPath, path);	
 	}
 	return TRUE;
 }
 
-void __stdcall ListGetDetectString(char* DetectString, int maxlen) {
-	TCHAR* detectString16 = getStoredString(TEXT("detect-string"), TEXT("MULTIMEDIA & (ext=\"CSV\" | ext=\"TAB\" | ext=\"TSV\")"));
-	char* detectString8 = utf16to8(detectString16);
-	snprintf(DetectString, maxlen, detectString8);
-	free(detectString16);
-	free(detectString8);
+void __stdcall ListGetDetectString(char* pszDetectString, int nMaxlen) 
+{
+	TCHAR* pszDetectString16 = getStoredString(TEXT("detect-string"), TEXT("MULTIMEDIA & (ext=\"CSV\" | ext=\"TAB\" | ext=\"TSV\")"));
+	char* pszDetectString8 = utf16to8(pszDetectString16);
+	snprintf(pszDetectString, nMaxlen, pszDetectString8);
+	free(pszDetectString16);
+	free(pszDetectString8);
 }
 
-void __stdcall ListSetDefaultParams(ListDefaultParamStruct* dps) {
-	if (iniPath[0] == 0) {
-		DWORD size = MultiByteToWideChar(CP_ACP, 0, dps->DefaultIniName, -1, NULL, 0);
-		MultiByteToWideChar(CP_ACP, 0, dps->DefaultIniName, -1, iniPath, size);
+void __stdcall ListSetDefaultParams(ListDefaultParamStruct* pDps)
+{
+	if (g_szIniPath[0] == 0) 
+	{
+		DWORD size = MultiByteToWideChar(CP_ACP, 0, pDps->szDefaultIniName, -1, NULL, 0);
+		MultiByteToWideChar(CP_ACP, 0, pDps->szDefaultIniName, -1, g_szIniPath, size);
 	}
 }
 
-int __stdcall ListSearchTextW(HWND hWnd, TCHAR* searchString, int searchParameter) {
-	HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
+int __stdcall ListSearchTextW(HWND hWnd, TCHAR* pszSearchString, int nSearchParameter) 
+{
+	HWND hGridWnd	= GetDlgItem(hWnd, IDC_GRID);
 	HWND hStatusWnd = GetDlgItem(hWnd, IDC_STATUSBAR);	
 	
-	TCHAR*** cache = (TCHAR***)GetProp(hWnd, TEXT("CACHE"));
-	int* resultset = (int*)GetProp(hWnd, TEXT("RESULTSET"));
-	int rowCount = *(int*)GetProp(hWnd, TEXT("ROWCOUNT"));
-	int colCount = Header_GetItemCount(ListView_GetHeader(hGridWnd));
-	if (!resultset || rowCount == 0)
+	TCHAR***	pppCache	= (TCHAR***)GetProp(hWnd, TEXT("CACHE"));
+	int*		pnResultset = (int*)GetProp(hWnd, TEXT("RESULTSET"));
+	int			nRowCount	= *(int*)GetProp(hWnd, TEXT("ROWCOUNT"));
+	int			nColCount	= Header_GetItemCount(ListView_GetHeader(hGridWnd));
+
+	if (!pnResultset || nRowCount == 0)
 		return 0;
 
-	BOOL isFindFirst = searchParameter & LCS_FINDFIRST;		
-	BOOL isBackward = searchParameter & LCS_BACKWARDS;
-	BOOL isMatchCase = searchParameter & LCS_MATCHCASE;
-	BOOL isWholeWords = searchParameter & LCS_WHOLEWORDS;	
+	BOOL bisFindFirst	= nSearchParameter & LCS_FINDFIRST;		
+	BOOL bisBackward	= nSearchParameter & LCS_BACKWARDS;
+	BOOL bIsMatchCase	= nSearchParameter & LCS_MATCHCASE;
+	BOOL bIsWholeWords	= nSearchParameter & LCS_WHOLEWORDS;	
 
-	if (isFindFirst) {
+	if (bisFindFirst) {
 		*(int*)GetProp(hWnd, TEXT("CURRENTCOLNO")) = 0;
 		*(int*)GetProp(hWnd, TEXT("SEARCHCELLPOS")) = 0;	
-		*(int*)GetProp(hWnd, TEXT("CURRENTROWNO")) = isBackward ? rowCount - 1 : 0;
+		*(int*)GetProp(hWnd, TEXT("CURRENTROWNO")) = bisBackward ? nRowCount - 1 : 0;
 	}	
 		
-	int rowNo = *(int*)GetProp(hWnd, TEXT("CURRENTROWNO"));
-	int colNo = *(int*)GetProp(hWnd, TEXT("CURRENTCOLNO"));
-	int *pStartPos = (int*)GetProp(hWnd, TEXT("SEARCHCELLPOS"));	
-	rowNo = rowNo == -1 || rowNo >= rowCount ? 0 : rowNo;
-	colNo = colNo == -1 || colNo >= colCount ? 0 : colNo;	
+	int		nRowNo		= *(int*)GetProp(hWnd, TEXT("CURRENTROWNO"));
+	int		nColNo		= *(int*)GetProp(hWnd, TEXT("CURRENTCOLNO"));
+	int *	pnStartPos	= (int*)GetProp(hWnd, TEXT("SEARCHCELLPOS"));	
+	nRowNo = nRowNo == -1 || nRowNo >= nRowCount ? 0 : nRowNo;
+	nColNo = nColNo == -1 || nColNo >= nColCount ? 0 : nColNo;	
 			
-	int pos = -1;
+	int nPos = -1;
 	do {
-		for (; (pos == -1) && colNo < colCount; colNo++) {
-			pos = findString(cache[resultset[rowNo]][colNo] + *pStartPos, searchString, isMatchCase, isWholeWords);
-			if (pos != -1) 
-				pos += *pStartPos;
-			*pStartPos = pos == -1 ? 0 : pos + _tcslen(searchString);
+		for (; (nPos == -1) && nColNo < nColCount; nColNo++) {
+			nPos = findString(pppCache[pnResultset[nRowNo]][nColNo] + *pnStartPos, pszSearchString, bIsMatchCase, bIsWholeWords);
+			if (nPos != -1) 
+				nPos += *pnStartPos;
+			*pnStartPos = (int)(nPos == -1 ? 0 : nPos + _tcslen(pszSearchString));
 		}
-		colNo = pos != -1 ? colNo - 1 : 0;
-		rowNo += pos != -1 ? 0 : isBackward ? -1 : 1; 	
-	} while ((pos == -1) && (isBackward ? rowNo > 0 : rowNo < rowCount));
+		nColNo = nPos != -1 ? nColNo - 1 : 0;
+		nRowNo += nPos != -1 ? 0 : bisBackward ? -1 : 1; 	
+	} while ((nPos == -1) && (bisBackward ? nRowNo > 0 : nRowNo < nRowCount));
 	ListView_SetItemState(hGridWnd, -1, 0, LVIS_SELECTED | LVIS_FOCUSED);
 
-	TCHAR buf[256] = {0};
-	if (pos != -1) {
-		ListView_EnsureVisible(hGridWnd, rowNo, FALSE);
-		ListView_SetItemState(hGridWnd, rowNo, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+	TCHAR szBuf[256] = {0};
+	if (nPos != -1)
+	{
+		ListView_EnsureVisible(hGridWnd, nRowNo, FALSE);
+		ListView_SetItemState(hGridWnd, nRowNo, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
 		
-		TCHAR* val = cache[resultset[rowNo]][colNo];
-		int len = _tcslen(searchString);
-		_sntprintf(buf, 255, TEXT("%ls%.*ls%ls"),
-			pos > 0 ? TEXT("...") : TEXT(""), 
-			len + pos + 10, val + pos,
-			_tcslen(val + pos + len) > 10 ? TEXT("...") : TEXT(""));
-		SendMessage(hWnd, WMU_SET_CURRENT_CELL, rowNo, colNo);
-	} else { 
-		MessageBox(hWnd, searchString, TEXT("Not found:"), MB_OK);
+		TCHAR* pszVal = pppCache[pnResultset[nRowNo]][nColNo];
+		int nLen = (int)_tcslen(pszSearchString);
+		_sntprintf(szBuf, 255, TEXT("%ls%.*ls%ls"),
+			nPos > 0 ? TEXT("...") : TEXT(""), 
+			nLen + nPos + 10, pszVal + nPos,
+			_tcslen(pszVal + nPos + nLen) > 10 ? TEXT("...") : TEXT(""));
+		SendMessage(hWnd, WMU_SET_CURRENT_CELL, nRowNo, nColNo);
+	} 
+	else 
+	{ 
+		MessageBox(hWnd, pszSearchString, TEXT("Not found:"), MB_OK);
 	}
-	SendMessage(hStatusWnd, SB_SETTEXT, SB_AUXILIARY, (LPARAM)buf);	
+	SendMessage(hStatusWnd, SB_SETTEXT, SB_AUXILIARY, (LPARAM)szBuf);	
 	SetFocus(hGridWnd);
 
 	return 0;
 }
 
-int __stdcall ListSearchText(HWND hWnd, char* searchString, int searchParameter) {
-	DWORD len = MultiByteToWideChar(CP_ACP, 0, searchString, -1, NULL, 0);
-	TCHAR* searchString16 = (TCHAR*)calloc (len, sizeof (TCHAR));
-	MultiByteToWideChar(CP_ACP, 0, searchString, -1, searchString16, len);
-	int rc = ListSearchTextW(hWnd, searchString16, searchParameter);
-	free(searchString16);
-	return rc;
+int __stdcall ListSearchText(HWND hWnd, char* pszSearchString, int nSearchParameter) {
+	DWORD nLen = MultiByteToWideChar(CP_ACP, 0, pszSearchString, -1, NULL, 0);
+	TCHAR* pszSearchString16 = (TCHAR*)calloc (nLen, sizeof (TCHAR));
+	MultiByteToWideChar(CP_ACP, 0, pszSearchString, -1, pszSearchString16, nLen);
+	int nResult = ListSearchTextW(hWnd, pszSearchString16, nSearchParameter);
+	free(pszSearchString16);
+	return nResult;
 }	
 
-HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* fileToLoad, int showFlags) {		
-	int size = _tcslen(fileToLoad);
-	TCHAR* filepath = (TCHAR*)calloc(size + 1, sizeof(TCHAR));
-	_tcsncpy(filepath, fileToLoad, size);
+HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* cpszFileToLoad, int nShowFlags) {		
+	int nSize = (int)_tcslen(cpszFileToLoad);
+	TCHAR* pszFilepath = (TCHAR*)calloc(nSize + 1, sizeof(TCHAR));
+	_tcsncpy(pszFilepath, cpszFileToLoad, nSize);
 		
-	int maxFileSize = getStoredValue(TEXT("max-file-size"), 10000000);	
+	int nMaxFileSize = getStoredValue(TEXT("max-file-nSize"), 10000000);	
 	struct _stat st = {0};
-	if (_tstat(filepath, &st) != 0 || st.st_size == 0/* || maxFileSize > 0 && st.st_size > maxFileSize*/)
+	if (_tstat(pszFilepath, &st) != 0 || st.st_size == 0/* || maxFileSize > 0 && st.st_size > maxFileSize*/)
 		return 0;
 
 	INITCOMMONCONTROLSEX icex;
@@ -118,12 +130,12 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* fileToLoad, int showFlags
 	
 	setlocale(LC_CTYPE, "");
 
-	BOOL isStandalone = GetParent(hListerWnd) == HWND_DESKTOP;
-	HWND hMainWnd = CreateWindow(WC_STATIC, APP_NAME, WS_CHILD | (isStandalone ? SS_SUNKEN : 0),
+	BOOL bisStandalone = GetParent(hListerWnd) == HWND_DESKTOP;
+	HWND hMainWnd = CreateWindow(WC_STATIC, APP_NAME, WS_CHILD | (bisStandalone ? SS_SUNKEN : 0),
 		0, 0, 100, 100, hListerWnd, (HMENU)IDC_MAIN, GetModuleHandle(0), NULL);
 
 	SetProp(hMainWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hMainWnd, GWLP_WNDPROC, (LONG_PTR)&mainWndProc));
-	SetProp(hMainWnd, TEXT("FILEPATH"), filepath);
+	SetProp(hMainWnd, TEXT("FILEPATH"), pszFilepath);
 	SetProp(hMainWnd, TEXT("FILESIZE"), calloc(1, sizeof(int)));
 	SetProp(hMainWnd, TEXT("DELIMITER"), calloc(1, sizeof(TCHAR)));
 	SetProp(hMainWnd, TEXT("CODEPAGE"), calloc(1, sizeof(int)));
@@ -156,29 +168,29 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* fileToLoad, int showFlags
 	
 	*(int*)GetProp(hMainWnd, TEXT("FILESIZE")) = st.st_size;
 	*(int*)GetProp(hMainWnd, TEXT("CODEPAGE")) = -1;
-	*(int*)GetProp(hMainWnd, TEXT("FONTSIZE")) = getStoredValue(TEXT("font-size"), 16);	
+	*(int*)GetProp(hMainWnd, TEXT("FONTSIZE")) = getStoredValue(TEXT("font-nSize"), 16);	
 	*(int*)GetProp(hMainWnd, TEXT("FILTERROW")) = getStoredValue(TEXT("filter-row"), 1);
 	*(int*)GetProp(hMainWnd, TEXT("HEADERROW")) = getStoredValue(TEXT("header-row"), 1);	
 	*(int*)GetProp(hMainWnd, TEXT("DARKTHEME")) = getStoredValue(TEXT("dark-theme"), 0);	
 	*(int*)GetProp(hMainWnd, TEXT("SKIPCOMMENTS")) = getStoredValue(TEXT("skip-comments"), 0);
 	*(int*)GetProp(hMainWnd, TEXT("FILTERALIGN")) = getStoredValue(TEXT("filter-align"), 0);
 		
-	HWND hStatusWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE | SBT_TOOLTIPS | (isStandalone ? SBARS_SIZEGRIP : 0), NULL, hMainWnd, IDC_STATUSBAR);
+	HWND hStatusWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE | SBT_TOOLTIPS | (bisStandalone ? SBARS_SIZEGRIP : 0), NULL, hMainWnd, IDC_STATUSBAR);
 	HDC hDC = GetDC(hMainWnd);
-	float z = GetDeviceCaps(hDC, LOGPIXELSX) / 96.0; // 96 = 100%, 120 = 125%, 144 = 150%
+	float fZ = (float)(GetDeviceCaps(hDC, LOGPIXELSX) / 96.0); // 96 = 100%, 120 = 125%, 144 = 150%
 	ReleaseDC(hMainWnd, hDC);	
-	int sizes[7] = {35 * z, 95 * z, 125 * z, 235 * z, 355 * z, 435 * z, -1};
-	SendMessage(hStatusWnd, SB_SETPARTS, 7, (LPARAM)&sizes);
-	TCHAR buf[32];
-	_sntprintf(buf, 32, TEXT(" %ls"), APP_VERSION);
-	SendMessage(hStatusWnd, SB_SETTEXT, SB_VERSION, (LPARAM)buf);
+	int nSizes[7] = {(int)(35 * fZ), (int)(95 * fZ), (int)(125 * fZ), (int)(235 * fZ), (int)(355 * fZ), (int)(435 * fZ), -1};
+	SendMessage(hStatusWnd, SB_SETPARTS, 7, (LPARAM)&nSizes);
+	TCHAR szBuf[32];
+	_sntprintf(szBuf, 32, TEXT(" %ls"), APP_VERSION);
+	SendMessage(hStatusWnd, SB_SETTEXT, SB_VERSION, (LPARAM)szBuf);
 	SendMessage(hStatusWnd, SB_SETTIPTEXT, SB_COMMENTS, (LPARAM)TEXT("How to process lines starting with #. Check Wiki to get details."));
 
 	HWND hGridWnd = CreateWindow(WC_LISTVIEW, NULL, WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_OWNERDATA | WS_TABSTOP,
 		205, 0, 100, 100, hMainWnd, (HMENU)IDC_GRID, GetModuleHandle(0), NULL);
 		
-	int noLines = getStoredValue(TEXT("disable-grid-lines"), 0);	
-	ListView_SetExtendedListViewStyle(hGridWnd, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | (noLines ? 0 : LVS_EX_GRIDLINES) | LVS_EX_LABELTIP | LVS_EX_HEADERDRAGDROP);
+	int nNoLines = getStoredValue(TEXT("disable-grid-lines"), 0);	
+	ListView_SetExtendedListViewStyle(hGridWnd, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | (nNoLines ? 0 : LVS_EX_GRIDLINES) | LVS_EX_LABELTIP | LVS_EX_HEADERDRAGDROP);
 	SetProp(hGridWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hGridWnd, GWLP_WNDPROC, (LONG_PTR)cbHotKey));
 
 	HWND hHeader = ListView_GetHeader(hGridWnd);
@@ -227,17 +239,17 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* fileToLoad, int showFlags
 	return hMainWnd;
 }
 
-HWND APIENTRY ListLoad (HWND hListerWnd, const char* fileToLoad, int showFlags) {
-	DWORD size = MultiByteToWideChar(CP_ACP, 0, fileToLoad, -1, NULL, 0);
-	TCHAR* fileToLoadW = (TCHAR*)calloc (size, sizeof (TCHAR));
-	MultiByteToWideChar(CP_ACP, 0, fileToLoad, -1, fileToLoadW, size);
-	HWND hWnd = ListLoadW(hListerWnd, fileToLoadW, showFlags);
-	free(fileToLoadW);
+HWND APIENTRY ListLoad (HWND hListerWnd, const char* cpszFileToLoad, int nShowFlags) {
+	DWORD nSize = MultiByteToWideChar(CP_ACP, 0, cpszFileToLoad, -1, NULL, 0);
+	TCHAR* pszFileToLoadW = (TCHAR*)calloc (nSize, sizeof (TCHAR));
+	MultiByteToWideChar(CP_ACP, 0, cpszFileToLoad, -1, pszFileToLoadW, nSize);
+	HWND hWnd = ListLoadW(hListerWnd, pszFileToLoadW, nShowFlags);
+	free(pszFileToLoadW);
 	return hWnd;
 }
 
 void __stdcall ListCloseWindow(HWND hWnd) {
-	setStoredValue(TEXT("font-size"), *(int*)GetProp(hWnd, TEXT("FONTSIZE")));
+	setStoredValue(TEXT("font-nSize"), *(int*)GetProp(hWnd, TEXT("FONTSIZE")));
 	setStoredValue(TEXT("filter-row"), *(int*)GetProp(hWnd, TEXT("FILTERROW")));		
 	setStoredValue(TEXT("header-row"), *(int*)GetProp(hWnd, TEXT("HEADERROW")));	
 	setStoredValue(TEXT("dark-theme"), *(int*)GetProp(hWnd, TEXT("DARKTHEME")));
@@ -320,147 +332,158 @@ void __stdcall ListCloseWindow(HWND hWnd) {
 	DestroyWindow(hWnd);
 }
 
-LRESULT CALLBACK cbHotKey(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	if (msg == WM_KEYDOWN && SendMessage(getMainWindow(hWnd), WMU_HOT_KEYS, wParam, lParam))
+LRESULT CALLBACK cbHotKey(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+{
+	if (uMsg == WM_KEYDOWN && SendMessage(getMainWindow(hWnd), WMU_HOT_KEYS, wParam, lParam))
 		return 0;
 
 	// Prevent beep
-	if (msg == WM_CHAR && SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
+	if (uMsg == WM_CHAR && SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
 		return 0;	
 
-	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, msg, wParam, lParam);
+	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
 }
 
-LRESULT CALLBACK cbNewHeader(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	if (msg == WM_CTLCOLOREDIT) {
+LRESULT CALLBACK cbNewHeader(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+{
+	if (uMsg == WM_CTLCOLOREDIT) {
 		HWND hMainWnd = getMainWindow(hWnd);
 		SetBkColor((HDC)wParam, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
 		SetTextColor((HDC)wParam, *(int*)GetProp(hMainWnd, TEXT("FILTERTEXTCOLOR")));
 		return (INT_PTR)(HBRUSH)GetProp(hMainWnd, TEXT("FILTERBACKBRUSH"));	
 	}
 	
-	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, msg, wParam, lParam);
+	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
 }
 
-LRESULT CALLBACK cbNewFilterEdit(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK cbNewFilterEdit(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+{
 	WNDPROC cbDefault = (WNDPROC)GetProp(hWnd, TEXT("WNDPROC"));
 
-	switch(msg){
-		case WM_PAINT: {
-			cbDefault(hWnd, msg, wParam, lParam);
+	switch(uMsg){
+		case WM_PAINT: 
+			{
+				cbDefault(hWnd, uMsg, wParam, lParam);
 
-			RECT rc;
-			GetClientRect(hWnd, &rc);
-			HWND hMainWnd = getMainWindow(hWnd);
-			BOOL isDark = *(int*)GetProp(hMainWnd, TEXT("DARKTHEME")); 
+				RECT rc;
+				GetClientRect(hWnd, &rc);
+				HWND hMainWnd = getMainWindow(hWnd);
+				BOOL bisDark = *(int*)GetProp(hMainWnd, TEXT("DARKTHEME")); 
 
-			HDC hDC = GetWindowDC(hWnd);
-			HPEN hPen = CreatePen(PS_SOLID, 1, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
-			HPEN oldPen = (HPEN)SelectObject(hDC, hPen);
-			MoveToEx(hDC, 1, 0, 0);
-			LineTo(hDC, rc.right - 1, 0);
-			LineTo(hDC, rc.right - 1, rc.bottom - 1);
+				HDC hDC = GetWindowDC(hWnd);
+				HPEN hPen = CreatePen(PS_SOLID, 1, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
+				HPEN oldPen = (HPEN)SelectObject(hDC, hPen);
+				MoveToEx(hDC, 1, 0, 0);
+				LineTo(hDC, rc.right - 1, 0);
+				LineTo(hDC, rc.right - 1, rc.bottom - 1);
 			
-			if (isDark) {
-				DeleteObject(hPen);
-				hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNFACE));
-				SelectObject(hDC, hPen);
+				if (bisDark) 
+				{
+					DeleteObject(hPen);
+					hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNFACE));
+					SelectObject(hDC, hPen);
 				
-				MoveToEx(hDC, 0, 0, 0);
-				LineTo(hDC, 0, rc.bottom);
-				MoveToEx(hDC, 0, rc.bottom - 1, 0);
-				LineTo(hDC, rc.right, rc.bottom - 1);
-				MoveToEx(hDC, 0, rc.bottom - 2, 0);
-				LineTo(hDC, rc.right, rc.bottom - 2);
-			}
+					MoveToEx(hDC, 0, 0, 0);
+					LineTo(hDC, 0, rc.bottom);
+					MoveToEx(hDC, 0, rc.bottom - 1, 0);
+					LineTo(hDC, rc.right, rc.bottom - 1);
+					MoveToEx(hDC, 0, rc.bottom - 2, 0);
+					LineTo(hDC, rc.right, rc.bottom - 2);
+				}
 			
-			SelectObject(hDC, oldPen);
-			DeleteObject(hPen);
-			ReleaseDC(hWnd, hDC);
+				SelectObject(hDC, oldPen);
+				DeleteObject(hPen);
+				ReleaseDC(hWnd, hDC);
 
-			return 0;
-		}
-		break;
-		
-		case WM_SETFOCUS: {
-			SetProp(getMainWindow(hWnd), TEXT("LASTFOCUS"), hWnd);
-		}
-		break;
-
-		case WM_KEYDOWN: {
-			HWND hMainWnd = getMainWindow(hWnd);
-			if (wParam == VK_RETURN) {
-				SendMessage(hMainWnd, WMU_UPDATE_RESULTSET, 0, 0);
-				return 0;			
-			}
-			
-			if (SendMessage(hMainWnd, WMU_HOT_KEYS, wParam, lParam))
 				return 0;
-		}
-		break;
+			}
+			break;
+		
+		case WM_SETFOCUS: 
+			SetProp(getMainWindow(hWnd), TEXT("LASTFOCUS"), hWnd);
+			break;
+
+		case WM_KEYDOWN: 
+			{
+				HWND hMainWnd = getMainWindow(hWnd);
+				if (wParam == VK_RETURN)
+				{
+					SendMessage(hMainWnd, WMU_UPDATE_RESULTSET, 0, 0);
+					return 0;			
+				}
+			
+				if (SendMessage(hMainWnd, WMU_HOT_KEYS, wParam, lParam))
+					return 0;
+			}
+			break;
 	
 		// Prevent beep
-		case WM_CHAR: {
-			if (SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
-				return 0;	
-		}
-		break;
+		case WM_CHAR: 
+			{
+				if (SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
+					return 0;	
+			}
+			break;
 		
-		case WM_DESTROY: {
+		case WM_DESTROY: 
 			RemoveProp(hWnd, TEXT("WNDPROC"));
-		}
-		break;
+			break;
 	}
 
-	return CallWindowProc(cbDefault, hWnd, msg, wParam, lParam);
+	return CallWindowProc(cbDefault, hWnd, uMsg, wParam, lParam);
 }
 
-int CALLBACK cbEnumTabStopChildren (HWND hWnd, LPARAM lParam) {
-	if (GetWindowLong(hWnd, GWL_STYLE) & WS_TABSTOP && IsWindowVisible(hWnd)) {
-		int no = 0;
-		HWND* wnds = (HWND*)lParam;
-		while (wnds[no])
-			no++;
-		wnds[no] = hWnd;
+int CALLBACK cbEnumTabStopChildren (HWND hWnd, LPARAM lParam) 
+{
+	if (GetWindowLong(hWnd, GWL_STYLE) & WS_TABSTOP && IsWindowVisible(hWnd)) 
+	{
+		int nNo = 0;
+		HWND* pWnds = (HWND*)lParam;
+		while (pWnds[nNo])
+			nNo++;
+		pWnds[nNo] = hWnd;
 	}
 
 	return TRUE;
 }
 
-int ListView_AddColumn(HWND hListWnd, TCHAR* colName, int fmt) {
-	int colNo = Header_GetItemCount(ListView_GetHeader(hListWnd));
+int ListView_AddColumn(HWND hListWnd, TCHAR* pszColName, int nFmt) 
+{
+	int nColNo = Header_GetItemCount(ListView_GetHeader(hListWnd));
 	LVCOLUMN lvc = {0};
 	lvc.mask = LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM | LVCF_FMT;
-	lvc.iSubItem = colNo;
-	lvc.pszText = colName;
-	lvc.cchTextMax = _tcslen(colName) + 1;
+	lvc.iSubItem = nColNo;
+	lvc.pszText = pszColName;
+	lvc.cchTextMax = (int)_tcslen(pszColName) + 1;
 	lvc.cx = 100;
-	lvc.fmt = fmt;
-	return ListView_InsertColumn(hListWnd, colNo, &lvc);
+	lvc.fmt = nFmt;
+	return ListView_InsertColumn(hListWnd, nColNo, &lvc);
 }
 
-int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, const int cchTextMax) {
+int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, const int cnCchTextMax)
+{
 	if (i < 0)
 		return FALSE;
 
-	TCHAR* buf = new TCHAR[cchTextMax];
+	TCHAR* pszBuf = new TCHAR[cnCchTextMax];
 
 	HDITEM hdi = {0};
 	hdi.mask = HDI_TEXT;
-	hdi.pszText = buf;
-	hdi.cchTextMax = cchTextMax;
-	int rc = Header_GetItem(hWnd, i, &hdi);
+	hdi.pszText = pszBuf;
+	hdi.cchTextMax = cnCchTextMax;
+	int nResult = Header_GetItem(hWnd, i, &hdi);
 
-	_tcsncpy(pszText, buf, cchTextMax);
+	_tcsncpy(pszText, pszBuf, cnCchTextMax);
 
-	delete [] buf;
-	return rc;
+	delete [] pszBuf;
+	return nResult;
 }
 
-void Menu_SetItemState(HMENU hMenu, UINT wID, UINT fState) {
+void Menu_SetItemState(HMENU hMenu, UINT wID, UINT uState) 
+{
 	MENUITEMINFO mii = {0};
 	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_STATE;
-	mii.fState = fState;
+	mii.fState = uState;
 	SetMenuItemInfo(hMenu, wID, FALSE, &mii);
 }
