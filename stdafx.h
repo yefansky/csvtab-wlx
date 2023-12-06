@@ -1,4 +1,4 @@
-// pch.h: This is a precompiled header file.
+// stdafx.h: This is a precompiled header file.
 // Files listed below are compiled only once, improving build performance for future builds.
 // This also affects IntelliSense performance, including code completion and many code browsing features.
 // However, files listed here are ALL re-compiled if any one of them is updated between builds.
@@ -25,6 +25,17 @@
 #include <CommCtrl.h>
 #include <uxtheme.h>
 
-#define USR_API extern "C" __declspec(dllexport)
+#include <windows.h>
+#include <windowsx.h>
+#include <commctrl.h>
+#include <uxtheme.h>
+#include <locale.h>
+#include <tchar.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <math.h>
+
+#include "globalDef.h"
 
 #endif //PCH_H

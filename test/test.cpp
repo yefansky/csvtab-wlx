@@ -57,7 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                     // Process the result or perform additional tests
 
                     // SetWindowPos parameters
-                    SetWindowPos(result, NULL, 0, 0, newWidth, newHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                    SetWindowPos(result, NULL, 0, 0, newWidth -20, newHeight - 20, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
                     // Enter the message loop
                     MSG msg;
