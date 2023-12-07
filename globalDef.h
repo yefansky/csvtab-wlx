@@ -79,32 +79,32 @@ typedef struct {
 } ListDefaultParamStruct;
 
 void __stdcall ListCloseWindow(HWND hWnd);
-LRESULT CALLBACK mainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK cbHotKey(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK cbNewHeader(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK cbNewFilterEdit(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK CallHotKeyProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK CallNewHeaderProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK CallNewFilterEditProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-HWND getMainWindow(HWND hWnd);
+HWND GetMainWindow(HWND hWnd);
 void setStoredValue(const TCHAR* cpszName, int nValue);
 int getStoredValue(const TCHAR* cpszName, int nDefValue);
 TCHAR* getStoredString(const TCHAR* cpszName, const TCHAR* cpszDefValue);
-int CALLBACK cbEnumTabStopChildren(HWND hWnd, LPARAM lParam);
-TCHAR* utf8to16(const char* cpszIn);
-char* utf16to8(const TCHAR* cpszIn);
-int detectCodePage(const char* cpszData, int nLen);
+int CALLBACK CallEnumTabStopChildrenProc(HWND hWnd, LPARAM lParam);
+TCHAR* Utf8to16(const char* cpszIn);
+char* Utf16to8(const TCHAR* cpszIn);
+int DetectCodePage(const char* cpszData, int nLen);
 TCHAR detectDelimiter(const TCHAR* cpszData, BOOL bSkipComments);
 void setClipboardText(const TCHAR* cpszText);
-BOOL isEOL(TCHAR c);
-BOOL isNumber(TCHAR* pszVal);
-BOOL isUtf8(const char* cpszString);
+BOOL IsEOL(TCHAR c);
+BOOL IsNumber(TCHAR* pszVal);
+BOOL IsUtf8(const char* cpszString);
 int findString(TCHAR* pszText, TCHAR* pszWord, BOOL bIsMatchCase, BOOL bIsWholeWords);
 BOOL hasString(const TCHAR* cpszStr, const TCHAR* cpszSub, BOOL bIsCaseSensitive);
 TCHAR* extractUrl(TCHAR* pszData);
-void mergeSort(int nIndexes[], void* pvData, int nL, int nR, BOOL bisBackward, BOOL bisNums);
+void MergeSort(int nIndexes[], void* pvData, int nL, int nR, BOOL bisBackward, BOOL bisNums);
 int ListView_AddColumn(HWND hListWnd, TCHAR* pszColName, int nFmt);
 int Header_GetItemText(HWND hWnd, int i, TCHAR* pszText, const int cnCchTextMax);
 void Menu_SetItemState(HMENU hMenu, UINT wID, UINT uState);
 
-int detectCodePage(const char* pszData, int nLen);
-TCHAR* utf8to16(const char* cpszIn);
-char* utf16to8(const TCHAR* cpszIn);
+int DetectCodePage(const char* pszData, int nLen);
+TCHAR* Utf8to16(const char* cpszIn);
+char* Utf16to8(const TCHAR* cpszIn);

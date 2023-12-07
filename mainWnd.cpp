@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-HWND getMainWindow(HWND hWnd) {
+HWND GetMainWindow(HWND hWnd) {
 	HWND hMainWnd = hWnd;
 	while (hMainWnd && GetDlgCtrlID(hMainWnd) != IDC_MAIN)
 		hMainWnd = GetParent(hMainWnd);
@@ -425,7 +425,7 @@ int OnMsgUpdateCache(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 
 	if (nCodepage == -1)
-		nCodepage = detectCodePage(pszRawdata, nFilesize);
+		nCodepage = DetectCodePage(pszRawdata, nFilesize);
 
 	// Fix unexpected zeros
 	if (nCodepage == CP_UTF16BE || nCodepage == CP_UTF16LE) {
@@ -455,7 +455,7 @@ int OnMsgUpdateCache(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		pszData = (TCHAR*)(pszRawdata + nLeadZeros);
 
 	if (nCodepage == CP_UTF8) {
-		pszData = utf8to16(pszRawdata + nLeadZeros);
+		pszData = Utf8to16(pszRawdata + nLeadZeros);
 		free(pszRawdata);
 	}
 
@@ -507,15 +507,15 @@ int OnMsgUpdateCache(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				TCHAR c = pszData[pos];
 
 				while (nStart == pos && (stepNo == 0 && nSkipComments == 1 || nSkipComments == 2) && c == TEXT('#')) {
-					while (pszData[pos] && !isEOL(pszData[pos]))
+					while (pszData[pos] && !IsEOL(pszData[pos]))
 						pos++;
-					while (pos < nLen && isEOL(pszData[pos]))
+					while (pos < nLen && IsEOL(pszData[pos]))
 						pos++;
 					c = pszData[pos];
 					nStart = pos;
 				}
 
-				if (c == chDelimiter && !(nSkipComments && pszData[nStart] == TEXT('#')) || isEOL(c) || pos >= nLen - 1) {
+				if (c == chDelimiter && !(nSkipComments && pszData[nStart] == TEXT('#')) || IsEOL(c) || pos >= nLen - 1) {
 					int nvLen = pos - nStart + (pos >= nLen - 1);
 					int nqPos = -1;
 					for (int i = 0; i < nvLen; i++) {
@@ -578,18 +578,18 @@ int OnMsgUpdateCache(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					nColNo++;
 				}
 
-				if (isEOL(pszData[pos])) {
-					while (isEOL(pszData[pos + 1]))
+				if (IsEOL(pszData[pos])) {
+					while (IsEOL(pszData[pos + 1]))
 						pos++;
 					break;
 				}
 			}
 
 			// Truncate 127+ columns
-			if (!isEOL(pszData[pos])) {
-				while (pos < nLen && !isEOL(pszData[pos + 1]))
+			if (!IsEOL(pszData[pos])) {
+				while (pos < nLen && !IsEOL(pszData[pos + 1]))
 					pos++;
-				while (pos < nLen && isEOL(pszData[pos + 1]))
+				while (pos < nLen && IsEOL(pszData[pos + 1]))
 					pos++;
 			}
 
@@ -679,7 +679,7 @@ void OnMsgUpdagteGrid(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		int nNum = 0;
 		int nCount = nRowCount < 6 ? nRowCount : 6;
 		for (int rowNo = 1; rowNo < nCount; rowNo++)
-			nNum += pppszCache[rowNo][colNo] && _tcslen(pppszCache[rowNo][colNo]) && isNumber(pppszCache[rowNo][colNo]);
+			nNum += pppszCache[rowNo][colNo] && _tcslen(pppszCache[rowNo][colNo]) && IsNumber(pppszCache[rowNo][colNo]);
 
 		int fmt = nNum > nCount / 2 ? LVCFMT_RIGHT : LVCFMT_LEFT;
 		TCHAR szColName[64];
@@ -693,7 +693,7 @@ void OnMsgUpdagteGrid(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		HWND hEdit = CreateWindowEx(WS_EX_TOPMOST, WC_EDIT, NULL, nAlign | ES_AUTOHSCROLL | WS_CHILD | WS_TABSTOP | WS_BORDER,
 			0, 0, 0, 0, hHeader, (HMENU)(INT_PTR)(IDC_HEADER_EDIT + nColNo), GetModuleHandle(0), NULL);
 		SendMessage(hEdit, WM_SETFONT, (LPARAM)GetProp(hWnd, TEXT("FONT")), TRUE);
-		SetProp(hEdit, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)cbNewFilterEdit));
+		SetProp(hEdit, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)CallNewFilterEditProc));
 	}
 
 	SendMessage(hWnd, WMU_UPDATE_RESULTSET, 0, 0);
@@ -764,7 +764,7 @@ int OnMsgUpdateResultset(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				continue;
 
 			TCHAR* pszValue = pppszCache[nRowNo][colNo];
-			if (nLen > 1 && (szFilter[0] == TEXT('<') || szFilter[0] == TEXT('>')) && isNumber(szFilter + 1)) {
+			if (nLen > 1 && (szFilter[0] == TEXT('<') || szFilter[0] == TEXT('>')) && IsNumber(szFilter + 1)) {
 				TCHAR* pszEnd = 0;
 				double fF = _tcstod(szFilter + 1, &pszEnd);
 				double fV = _tcstod(pszValue, &pszEnd);
@@ -808,7 +808,7 @@ int OnMsgUpdateResultset(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 			BOOL bisNum = TRUE;
 			for (int i = nisHeaderRow; i < *pnTotalRowCount && i <= 5; i++)
-				bisNum = bisNum && isNumber(pppszCache[i][nColNo]);
+				bisNum = bisNum && IsNumber(pppszCache[i][nColNo]);
 
 			if (bisNum) 
 			{
@@ -816,7 +816,7 @@ int OnMsgUpdateResultset(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				for (int i = 0; i < nRowCount; i++)
 					nums[pnResultset[i]] = _tcstod(pppszCache[pnResultset[i]][nColNo], NULL);
 
-				mergeSort(pnResultset, (void*)nums, 0, nRowCount - 1, bisBackward, bisNum);
+				MergeSort(pnResultset, (void*)nums, 0, nRowCount - 1, bisBackward, bisNum);
 				free(nums);
 			}
 			else 
@@ -824,7 +824,7 @@ int OnMsgUpdateResultset(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				TCHAR** strings = (TCHAR**)calloc(*pnTotalRowCount, sizeof(TCHAR*));
 				for (int i = 0; i < nRowCount; i++)
 					strings[pnResultset[i]] = pppszCache[pnResultset[i]][nColNo];
-				mergeSort(pnResultset, (void*)strings, 0, nRowCount - 1, bisBackward, bisNum);
+				MergeSort(pnResultset, (void*)strings, 0, nRowCount - 1, bisBackward, bisNum);
 				free(strings);
 			}
 		}
@@ -935,7 +935,7 @@ void OnMsgSetHeaderFilters(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	// Bug fix: force Windows to redraw header
 	SetWindowPos(hGridWnd, 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE);
-	SendMessage(getMainWindow(hWnd), WM_SIZE, 0, 0);
+	SendMessage(GetMainWindow(hWnd), WM_SIZE, 0, 0);
 
 	if (nisFilterRow)
 		SendMessage(hWnd, WMU_UPDATE_FILTER_SIZE, 0, 0);
@@ -1085,7 +1085,7 @@ int OnMsgHotKeys(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (wParam == VK_TAB) {
 		HWND hFocus = GetFocus();
 		HWND wnds[1000] = { 0 };
-		EnumChildWindows(hWnd, (WNDENUMPROC)cbEnumTabStopChildren, (LPARAM)wnds);
+		EnumChildWindows(hWnd, (WNDENUMPROC)CallEnumTabStopChildrenProc, (LPARAM)wnds);
 
 		int nNo = 0;
 		while (wnds[nNo] && wnds[nNo] != hFocus)
@@ -1174,122 +1174,122 @@ int OnMsgHotChars(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		getStoredValue(TEXT("exit-by-q"), 0) && uKey == 0x51 && GetDlgCtrlID(GetFocus()) / 100 * 100 != IDC_HEADER_EDIT; // Q
 }
 
-LRESULT CALLBACK mainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 {
+	LRESULT nResult = -1;
 	LRESULT nRetCode = 0;
 
 	switch (uMsg)
 	{
 	case WM_SIZE:
-	{
-		HWND hStatusWnd = GetDlgItem(hWnd, IDC_STATUSBAR);
-		SendMessage(hStatusWnd, WM_SIZE, 0, 0);
-		RECT rc;
-		GetClientRect(hStatusWnd, &rc);
-		int nStatusH = rc.bottom;
+		{
+			HWND hStatusWnd = GetDlgItem(hWnd, IDC_STATUSBAR);
+			SendMessage(hStatusWnd, WM_SIZE, 0, 0);
+			RECT rc;
+			GetClientRect(hStatusWnd, &rc);
+			int nStatusH = rc.bottom;
 
-		GetClientRect(hWnd, &rc);
-		HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
-		SetWindowPos(hGridWnd, 0, 0, 0, rc.right, rc.bottom - nStatusH, SWP_NOZORDER);
-	}
-	break;
+			GetClientRect(hWnd, &rc);
+			HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
+			SetWindowPos(hGridWnd, 0, 0, 0, rc.right, rc.bottom - nStatusH, SWP_NOZORDER);
+		}
+		break;
 
 	// https://groups.google.com/g/comp.os.ms-windows.programmer.win32/c/1XhCKATRXws
 	case WM_NCHITTEST:
-		return 1;
+		nResult = 1;
+		goto Exit0;
 
 	case WM_SETCURSOR:
-	{
-		SetCursor(LoadCursor(0, IDC_ARROW));
-		return TRUE;
-	}
-	break;
+		{
+			SetCursor(LoadCursor(0, IDC_ARROW));
+			nResult = TRUE;
+			goto Exit0;
+		}
+		break;
 
 	case WM_SETFOCUS:
-	{
-		SetFocus((HWND)GetProp(hWnd, TEXT("LASTFOCUS")));
-	}
-	break;
+		{
+			SetFocus((HWND)GetProp(hWnd, TEXT("LASTFOCUS")));
+		}
+		break;
 
 	case WM_MOUSEWHEEL:
-	{
-		if (LOWORD(wParam) == MK_CONTROL) {
-			SendMessage(hWnd, WMU_SET_FONT, GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1, 0);
-			return 1;
+		{
+			if (LOWORD(wParam) == MK_CONTROL) {
+				SendMessage(hWnd, WMU_SET_FONT, GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1, 0);
+				nResult = 1;
+				goto Exit0;
+			}
 		}
-	}
-	break;
+		break;
 
 	case WM_KEYDOWN:
-	{
-		if (SendMessage(hWnd, WMU_HOT_KEYS, wParam, lParam))
-			return 0;
-	}
-	break;
+		{
+			if (SendMessage(hWnd, WMU_HOT_KEYS, wParam, lParam))
+			{
+				nResult = 0;
+				goto Exit0;
+			}
+		}
+		break;
 
 	case WM_COMMAND:
 		nRetCode = OnMsgCommand(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
-
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 	case WM_NOTIFY:
 		nRetCode = OnMsgNotify(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
-
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 		// wParam = colNo
 	case WMU_HIDE_COLUMN:
-	{
-		HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
-		HWND hHeader = ListView_GetHeader(hGridWnd);
-		int nColNo = (int)wParam;
+		{
+			HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
+			HWND hHeader = ListView_GetHeader(hGridWnd);
+			int nColNo = (int)wParam;
 
-		HWND hEdit = GetDlgItem(hHeader, IDC_HEADER_EDIT + nColNo);
-		SetWindowLongPtr(hEdit, GWLP_USERDATA, (LONG_PTR)ListView_GetColumnWidth(hGridWnd, nColNo));
-		ListView_SetColumnWidth(hGridWnd, nColNo, 0);
-		InvalidateRect(hHeader, NULL, TRUE);
-	}
-	break;
+			HWND hEdit = GetDlgItem(hHeader, IDC_HEADER_EDIT + nColNo);
+			SetWindowLongPtr(hEdit, GWLP_USERDATA, (LONG_PTR)ListView_GetColumnWidth(hGridWnd, nColNo));
+			ListView_SetColumnWidth(hGridWnd, nColNo, 0);
+			InvalidateRect(hHeader, NULL, TRUE);
+		}
+		break;
 
 	case WMU_SHOW_COLUMNS:
-	{
-		HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
-		HWND hHeader = ListView_GetHeader(hGridWnd);
-		int nColCount = Header_GetItemCount(ListView_GetHeader(hGridWnd));
-		for (int nColNo = 0; nColNo < nColCount; nColNo++) {
-			if (ListView_GetColumnWidth(hGridWnd, nColNo) == 0) {
-				HWND hEdit = GetDlgItem(hHeader, IDC_HEADER_EDIT + nColNo);
-				ListView_SetColumnWidth(hGridWnd, nColNo, (int)GetWindowLongPtr(hEdit, GWLP_USERDATA));
+		{
+			HWND hGridWnd = GetDlgItem(hWnd, IDC_GRID);
+			HWND hHeader = ListView_GetHeader(hGridWnd);
+			int nColCount = Header_GetItemCount(ListView_GetHeader(hGridWnd));
+			for (int nColNo = 0; nColNo < nColCount; nColNo++) {
+				if (ListView_GetColumnWidth(hGridWnd, nColNo) == 0) {
+					HWND hEdit = GetDlgItem(hHeader, IDC_HEADER_EDIT + nColNo);
+					ListView_SetColumnWidth(hGridWnd, nColNo, (int)GetWindowLongPtr(hEdit, GWLP_USERDATA));
+				}
 			}
-		}
 
-		InvalidateRect(hGridWnd, NULL, TRUE);
-	}
-	break;
+			InvalidateRect(hGridWnd, NULL, TRUE);
+		}
+		break;
 
 	// wParam = colNo
 	case WMU_SORT_COLUMN:
-	{
-		int nColNo = (int)wParam + 1;
-		if (nColNo <= 0)
-			return FALSE;
+		{
+			int nColNo = (int)wParam + 1;
+			KG_PROCESS_ERROR_RET_CODE(nColNo > 0, FALSE);
 
-		int* pnOrderBy = (int*)GetProp(hWnd, TEXT("ORDERBY"));
-		int nOrderBy = *pnOrderBy;
-		*pnOrderBy = nColNo == nOrderBy || nColNo == -nOrderBy ? -nOrderBy : nColNo;
-		SendMessage(hWnd, WMU_UPDATE_RESULTSET, 0, 0);
-	}
-	break;
+			int* pnOrderBy = (int*)GetProp(hWnd, TEXT("ORDERBY"));
+			int nOrderBy = *pnOrderBy;
+			*pnOrderBy = nColNo == nOrderBy || nColNo == -nOrderBy ? -nOrderBy : nColNo;
+			SendMessage(hWnd, WMU_UPDATE_RESULTSET, 0, 0);
+		}
+		break;
 
 	case WMU_UPDATE_CACHE:
 		nRetCode = OnMsgUpdateCache(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
-
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 	case WMU_UPDATE_GRID:
@@ -1315,8 +1315,7 @@ LRESULT CALLBACK mainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		// wParam = rowNo, lParam = colNo
 	case WMU_SET_CURRENT_CELL:
 		nRetCode = OnMsgSetCurrentCell(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 	case WMU_RESET_CACHE:
@@ -1326,8 +1325,7 @@ LRESULT CALLBACK mainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		// wParam - size delta
 	case WMU_SET_FONT:
 		nRetCode = OnMsgSetFont(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 	case WMU_SET_THEME:
@@ -1336,14 +1334,16 @@ LRESULT CALLBACK mainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case WMU_HOT_KEYS:
 		nRetCode = OnMsgHotKeys(hWnd, uMsg, wParam, lParam);
-		if (nRetCode != -1)
-			return nRetCode;
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 
 	case WMU_HOT_CHARS:
-		return OnMsgHotChars(hWnd, uMsg, wParam, lParam);
+		nRetCode = OnMsgHotChars(hWnd, uMsg, wParam, lParam);
+		KG_PROCESS_ERROR_RET_CODE(nRetCode != -1, nRetCode);
 		break;
 	}
 
-	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
+	nResult = CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
+Exit0:
+	return nResult;
 }

@@ -1,15 +1,16 @@
 #include "stdafx.h"
 
-BOOL isEOL(TCHAR c) 
+BOOL IsEOL(TCHAR c) 
 {
 	return c == TEXT('\r') || c == TEXT('\n');
 }
 
-BOOL isNumber(TCHAR* pszVal)
+BOOL IsNumber(TCHAR* pszVal)
 {
-	int nLen = (int)_tcslen(pszVal);
-	BOOL bResult = TRUE;
-	int nCount = 0;
+	BOOL	bResult = TRUE;
+	int		nLen	= (int)_tcslen(pszVal);
+	int		nCount	= 0;
+
 	for (int i = 0; bResult && i < nLen; i++) 
 	{
 		nCount += pszVal[i] == TEXT('.');
@@ -18,13 +19,12 @@ BOOL isNumber(TCHAR* pszVal)
 	return bResult && nCount < 2;
 }
 
-void mergeSortJoiner(int nIndexes[], void* pvData, int l, int m, int r, BOOL bisBackward, BOOL bisNums) 
+void MergeSortJoiner(int nIndexes[], void* pvData, int l, int m, int r, BOOL bisBackward, BOOL bisNums) 
 {
-	int n1 = m - l + 1;
-	int n2 = r - m;
-
-	int* L = (int*)calloc(n1, sizeof(int));
-	int* R = (int*)calloc(n2, sizeof(int));
+	int		n1	= m - l + 1;
+	int		n2	= r - m;
+	int*	L	= (int*)calloc(n1, sizeof(int));
+	int*	R	= (int*)calloc(n2, sizeof(int));
 
 	for (int i = 0; i < n1; i++)
 		L[i] = nIndexes[l + i];
@@ -69,13 +69,13 @@ void mergeSortJoiner(int nIndexes[], void* pvData, int l, int m, int r, BOOL bis
 	free(R);
 }
 
-void mergeSort(int nIndexes[], void* pvData, int l, int r, BOOL bisBackward, BOOL bisNums) 
+void MergeSort(int nIndexes[], void* pvData, int l, int r, BOOL bisBackward, BOOL bisNums) 
 {
 	if (l < r) 
 	{
 		int m = l + (r - l) / 2;
-		mergeSort(nIndexes, pvData, l, m, bisBackward, bisNums);
-		mergeSort(nIndexes, pvData, m + 1, r, bisBackward, bisNums);
-		mergeSortJoiner(nIndexes, pvData, l, m, r, bisBackward, bisNums);
+		MergeSort(nIndexes, pvData, l, m, bisBackward, bisNums);
+		MergeSort(nIndexes, pvData, m + 1, r, bisBackward, bisNums);
+		MergeSortJoiner(nIndexes, pvData, l, m, r, bisBackward, bisNums);
 	}
 }

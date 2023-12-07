@@ -22,7 +22,7 @@ BOOL APIENTRY DllMain (HANDLE hModule, DWORD dwUlReasonForCall, LPVOID pvReserve
 void __stdcall ListGetDetectString(char* pszDetectString, int nMaxlen) 
 {
 	TCHAR* pszDetectString16 = getStoredString(TEXT("detect-string"), TEXT("MULTIMEDIA & (ext=\"CSV\" | ext=\"TAB\" | ext=\"TSV\")"));
-	char* pszDetectString8 = utf16to8(pszDetectString16);
+	char* pszDetectString8 = Utf16to8(pszDetectString16);
 	snprintf(pszDetectString, nMaxlen, pszDetectString8);
 	free(pszDetectString16);
 	free(pszDetectString8);
@@ -134,7 +134,7 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* cpszFileToLoad, int nShow
 	HWND hMainWnd = CreateWindow(WC_STATIC, APP_NAME, WS_CHILD | (bisStandalone ? SS_SUNKEN : 0),
 		0, 0, 100, 100, hListerWnd, (HMENU)IDC_MAIN, GetModuleHandle(0), NULL);
 
-	SetProp(hMainWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hMainWnd, GWLP_WNDPROC, (LONG_PTR)&mainWndProc));
+	SetProp(hMainWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hMainWnd, GWLP_WNDPROC, (LONG_PTR)&MainWndProc));
 	SetProp(hMainWnd, TEXT("FILEPATH"), pszFilepath);
 	SetProp(hMainWnd, TEXT("FILESIZE"), calloc(1, sizeof(int)));
 	SetProp(hMainWnd, TEXT("DELIMITER"), calloc(1, sizeof(TCHAR)));
@@ -191,11 +191,11 @@ HWND APIENTRY ListLoadW (HWND hListerWnd, const TCHAR* cpszFileToLoad, int nShow
 		
 	int nNoLines = getStoredValue(TEXT("disable-grid-lines"), 0);	
 	ListView_SetExtendedListViewStyle(hGridWnd, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | (nNoLines ? 0 : LVS_EX_GRIDLINES) | LVS_EX_LABELTIP | LVS_EX_HEADERDRAGDROP);
-	SetProp(hGridWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hGridWnd, GWLP_WNDPROC, (LONG_PTR)cbHotKey));
+	SetProp(hGridWnd, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hGridWnd, GWLP_WNDPROC, (LONG_PTR)CallHotKeyProc));
 
 	HWND hHeader = ListView_GetHeader(hGridWnd);
 	SetWindowTheme(hHeader, TEXT(" "), TEXT(" "));
-	SetProp(hHeader, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hHeader, GWLP_WNDPROC, (LONG_PTR)cbNewHeader));	 
+	SetProp(hHeader, TEXT("WNDPROC"), (HANDLE)SetWindowLongPtr(hHeader, GWLP_WNDPROC, (LONG_PTR)CallNewHeaderProc));	 
 
 	HMENU hGridMenu = CreatePopupMenu();
 	AppendMenu(hGridMenu, MF_STRING, IDM_COPY_CELL, TEXT("Copy cell"));
@@ -330,121 +330,6 @@ void __stdcall ListCloseWindow(HWND hWnd) {
 	RemoveProp(hWnd, TEXT("COMMENTMENU"));	
 
 	DestroyWindow(hWnd);
-}
-
-LRESULT CALLBACK cbHotKey(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
-{
-	if (uMsg == WM_KEYDOWN && SendMessage(getMainWindow(hWnd), WMU_HOT_KEYS, wParam, lParam))
-		return 0;
-
-	// Prevent beep
-	if (uMsg == WM_CHAR && SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
-		return 0;	
-
-	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
-}
-
-LRESULT CALLBACK cbNewHeader(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
-{
-	if (uMsg == WM_CTLCOLOREDIT) {
-		HWND hMainWnd = getMainWindow(hWnd);
-		SetBkColor((HDC)wParam, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
-		SetTextColor((HDC)wParam, *(int*)GetProp(hMainWnd, TEXT("FILTERTEXTCOLOR")));
-		return (INT_PTR)(HBRUSH)GetProp(hMainWnd, TEXT("FILTERBACKBRUSH"));	
-	}
-	
-	return CallWindowProc((WNDPROC)GetProp(hWnd, TEXT("WNDPROC")), hWnd, uMsg, wParam, lParam);
-}
-
-LRESULT CALLBACK cbNewFilterEdit(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
-{
-	WNDPROC cbDefault = (WNDPROC)GetProp(hWnd, TEXT("WNDPROC"));
-
-	switch(uMsg){
-		case WM_PAINT: 
-			{
-				cbDefault(hWnd, uMsg, wParam, lParam);
-
-				RECT rc;
-				GetClientRect(hWnd, &rc);
-				HWND hMainWnd = getMainWindow(hWnd);
-				BOOL bisDark = *(int*)GetProp(hMainWnd, TEXT("DARKTHEME")); 
-
-				HDC hDC = GetWindowDC(hWnd);
-				HPEN hPen = CreatePen(PS_SOLID, 1, *(int*)GetProp(hMainWnd, TEXT("FILTERBACKCOLOR")));
-				HPEN oldPen = (HPEN)SelectObject(hDC, hPen);
-				MoveToEx(hDC, 1, 0, 0);
-				LineTo(hDC, rc.right - 1, 0);
-				LineTo(hDC, rc.right - 1, rc.bottom - 1);
-			
-				if (bisDark) 
-				{
-					DeleteObject(hPen);
-					hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNFACE));
-					SelectObject(hDC, hPen);
-				
-					MoveToEx(hDC, 0, 0, 0);
-					LineTo(hDC, 0, rc.bottom);
-					MoveToEx(hDC, 0, rc.bottom - 1, 0);
-					LineTo(hDC, rc.right, rc.bottom - 1);
-					MoveToEx(hDC, 0, rc.bottom - 2, 0);
-					LineTo(hDC, rc.right, rc.bottom - 2);
-				}
-			
-				SelectObject(hDC, oldPen);
-				DeleteObject(hPen);
-				ReleaseDC(hWnd, hDC);
-
-				return 0;
-			}
-			break;
-		
-		case WM_SETFOCUS: 
-			SetProp(getMainWindow(hWnd), TEXT("LASTFOCUS"), hWnd);
-			break;
-
-		case WM_KEYDOWN: 
-			{
-				HWND hMainWnd = getMainWindow(hWnd);
-				if (wParam == VK_RETURN)
-				{
-					SendMessage(hMainWnd, WMU_UPDATE_RESULTSET, 0, 0);
-					return 0;			
-				}
-			
-				if (SendMessage(hMainWnd, WMU_HOT_KEYS, wParam, lParam))
-					return 0;
-			}
-			break;
-	
-		// Prevent beep
-		case WM_CHAR: 
-			{
-				if (SendMessage(getMainWindow(hWnd), WMU_HOT_CHARS, wParam, lParam))
-					return 0;	
-			}
-			break;
-		
-		case WM_DESTROY: 
-			RemoveProp(hWnd, TEXT("WNDPROC"));
-			break;
-	}
-
-	return CallWindowProc(cbDefault, hWnd, uMsg, wParam, lParam);
-}
-
-int CALLBACK cbEnumTabStopChildren (HWND hWnd, LPARAM lParam) 
-{
-	if (GetWindowLong(hWnd, GWL_STYLE) & WS_TABSTOP && IsWindowVisible(hWnd)) 
-	{
-		int nNo = 0;
-		HWND* pWnds = (HWND*)lParam;
-		while (pWnds[nNo])
-			nNo++;
-		pWnds[nNo] = hWnd;
-	}
-
-	return TRUE;
 }
 
 int ListView_AddColumn(HWND hListWnd, TCHAR* pszColName, int nFmt) 

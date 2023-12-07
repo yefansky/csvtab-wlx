@@ -17,6 +17,8 @@
 #define _UNICODE
 #endif
 
+#include <assert.h>
+
 #include <tchar.h>
 
 // add headers that you want to pre-compile here
@@ -37,5 +39,11 @@
 #include <math.h>
 
 #include "globalDef.h"
+
+#define KG_PROCESS_ERROR(C) do {if (!(C)) goto Exit0; } while(false);
+#define KG_PROCESS_ERROR_RET_CODE(C, ret) do {if (!(C)) {nResult = ret; goto Exit0; }} while(false);
+
+
+#define KG_PROCESS_SUCCESS(C) do {if ((C)) goto Exit1; } while(false);
 
 #endif //PCH_H

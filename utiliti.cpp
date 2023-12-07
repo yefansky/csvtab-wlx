@@ -49,9 +49,9 @@ TCHAR detectDelimiter(const TCHAR* cpszData, BOOL bSkipComments)
 
 			while (!bInQuote && bSkipComments == 2 && c == TEXT('#')) 
 			{
-				while (cpszData[nPos] && !isEOL(cpszData[nPos]))
+				while (cpszData[nPos] && !IsEOL(cpszData[nPos]))
 					nPos++;
-				while (nPos < nLen && isEOL(cpszData[nPos]))
+				while (nPos < nLen && IsEOL(cpszData[nPos]))
 					nPos++;
 				c = cpszData[nPos];
 			}

@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 // https://stackoverflow.com/a/25023604/6121703
-int detectCodePage(const char* cpszData, int nLen) {
+int DetectCodePage(const char* cpszData, int nLen) {
 	int nRetCode = 0;
 
 	// BOM
@@ -32,7 +32,7 @@ int detectCodePage(const char* cpszData, int nLen) {
 			0;
 	}
 
-	if (!nRetCode && isUtf8(cpszData))
+	if (!nRetCode && IsUtf8(cpszData))
 		nRetCode = CP_UTF8;
 
 	if (!nRetCode)
@@ -42,7 +42,7 @@ int detectCodePage(const char* cpszData, int nLen) {
 }
 
 // https://stackoverflow.com/a/1031773/6121703
-BOOL isUtf8(const char* cpszString) 
+BOOL IsUtf8(const char* cpszString) 
 {
 	if (!cpszString)
 		return FALSE;
@@ -86,7 +86,7 @@ BOOL isUtf8(const char* cpszString)
 	return TRUE;
 }
 
-TCHAR* utf8to16(const char* cpszIn) 
+TCHAR* Utf8to16(const char* cpszIn) 
 {
 	TCHAR* pszResult = nullptr;
 	if (!cpszIn || strlen(cpszIn) == 0) 
@@ -102,7 +102,7 @@ TCHAR* utf8to16(const char* cpszIn)
 	return pszResult;
 }
 
-char* utf16to8(const TCHAR* cpszIn)
+char* Utf16to8(const TCHAR* cpszIn)
 {
 	char* pszResult;
 	if (!cpszIn || _tcslen(cpszIn) == 0) 
